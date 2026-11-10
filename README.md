@@ -17,9 +17,9 @@
 ```text
 [ Single-Cell RNA-seq ] ──► Masked Gene Transformer ──┐
                                                       ├─► Cross-Attention ──► Latent Diffusion ──► Predicted Perturbed
-[ Spatial Coordinates ] ──► Spatial GNN (PyG) ───────┤   Fusion Head         Engine               Cell State
-                                                     │
-[ Cell Morphology ]    ──► Vision Features ──────────┘
+[ Spatial Coordinates ] ──► Spatial GNN (PyG)  ───────┤   Fusion Head         Engine               Cell State
+                                                      │
+[ Cell Morphology ]    ──► Vision Features  ──────────┘
 
 ```
 
