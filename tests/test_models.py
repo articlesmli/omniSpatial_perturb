@@ -1,6 +1,6 @@
 import torch
-from models.spatial_gnn import SpatialGNN # Adjust to your actual class name
+from models.spatial_gnn import SpatialCrossAttentionFusion
 
 def test_model_initialization():
-    model = SpatialGNN()
+    model = SpatialCrossAttentionFusion()
     assert model is not None
