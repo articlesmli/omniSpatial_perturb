@@ -107,6 +107,4 @@ PYTHONPATH=. python -u scripts/evaluate.py
 
 ## License
 
-This project is open-source and available under the terms of the [MIT License](https://www.google.com/search?q=LICENSE).
-
-```
+This project is open-source and available under the terms of the [MIT License]
