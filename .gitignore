@@ -1,0 +1,8 @@
+ssl/
+*.h5ad
+*.pth
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+omnispatial_perturb.egg-info/

@@ -1,0 +1,11 @@
+.git
+.gitignore
+data/
+checkpoints/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.vscode/
+*.md
