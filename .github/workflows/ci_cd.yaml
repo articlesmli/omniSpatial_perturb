@@ -33,7 +33,7 @@ jobs:
 
     - name: Run Unit Tests with Pytest
       run: |
-        pytest tests/
+        PYTHONPATH=. pytest tests/
 
   docker-build-check:
     runs-on: ubuntu-latest
