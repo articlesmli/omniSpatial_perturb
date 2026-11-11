@@ -33,6 +33,15 @@ optimizer = torch.optim.AdamW(
     lr=1e-4
 )
 
+# Helper to extract the 256-dim latent embeddings right before the final scalar head
+latent_cache = {}
+def get_latent_hook(module, inp, out):
+    hidden = inp[0]
+    latent_cache["hidden"] = hidden.mean(dim=1) if hidden.dim() == 3 else hidden
+
+last_linear = [m for m in backbone.modules() if isinstance(m, nn.Linear)][-1]
+hook_handle = last_linear.register_forward_hook(get_latent_hook)
+
 # 5. Fine-Tuning Loop
 backbone.train()
 diffusion_head.train()
@@ -54,15 +63,12 @@ for epoch in range(3):
         perturb_ids = perturb_ids.to(device)
         batch_size = gene_ids.size(0)
 
-        # Encode control and target cells into latent embeddings [Batch, 256]
-        # Note: Replace with backbone.encode(...) if your transformer has a dedicated encoder method
-        z_ctrl = backbone(gene_ids, control_expr)
-        z_target = backbone(gene_ids, target_expr)
+        # Extract 256-dim latent embeddings for control and target cells [Batch, 256]
+        _ = backbone(gene_ids, control_expr)
+        z_ctrl = latent_cache["hidden"]
 
-        # If backbone outputs gene-level tokens [Batch, Genes, 256], pool to cell-level [Batch, 256]
-        if z_ctrl.dim() == 3:
-            z_ctrl = z_ctrl.mean(dim=1)
-            z_target = z_target.mean(dim=1)
+        _ = backbone(gene_ids, target_expr)
+        z_target = latent_cache["hidden"]
 
         # Sample random diffusion timesteps and Gaussian noise
         t = torch.randint(0, num_timesteps, (batch_size,), device=device)
@@ -83,7 +89,8 @@ for epoch in range(3):
 
     print(f"Epoch [{epoch+1}/3] | Diffusion Fine-Tuning Loss: {epoch_loss / len(dataloader):.4f}")
 
-# 6. Save both checkpoints
+# Clean up hook and save both checkpoints
+hook_handle.remove()
 torch.save({
     "backbone": backbone.state_dict(),
     "diffusion_head": diffusion_head.state_dict()
