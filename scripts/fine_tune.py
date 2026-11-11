@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from models.transformer import SingleCellTransformer
 from models.perturbation import PerturbationDiffusionHead
@@ -43,11 +44,12 @@ last_linear = [m for m in backbone.modules() if isinstance(m, nn.Linear)][-1]
 hook_handle = last_linear.register_forward_hook(get_latent_hook)
 
 # 5. Fine-Tuning Loop
+num_epochs = 50
 backbone.train()
 diffusion_head.train()
-print("Starting personalized diffusion fine-tuning...")
+print(f"Starting personalized diffusion fine-tuning for {num_epochs} epochs...")
 
-for epoch in range(3):
+for epoch in range(num_epochs):
     epoch_loss = 0.0
     for batch in dataloader:
         # Unpack batch (handles optional perturb_ids if your loader provides them)
@@ -63,12 +65,12 @@ for epoch in range(3):
         perturb_ids = perturb_ids.to(device)
         batch_size = gene_ids.size(0)
 
-        # Extract 256-dim latent embeddings for control and target cells [Batch, 256]
+        # Extract and standardize 256-dim latent embeddings (mean=0, std=1)
         _ = backbone(gene_ids, control_expr)
-        z_ctrl = latent_cache["hidden"]
+        z_ctrl = F.layer_norm(latent_cache["hidden"], normalized_shape=(256,))
 
         _ = backbone(gene_ids, target_expr)
-        z_target = latent_cache["hidden"]
+        z_target = F.layer_norm(latent_cache["hidden"], normalized_shape=(256,))
 
         # Sample random diffusion timesteps and Gaussian noise
         t = torch.randint(0, num_timesteps, (batch_size,), device=device)
@@ -87,7 +89,7 @@ for epoch in range(3):
 
         epoch_loss += loss.item()
 
-    print(f"Epoch [{epoch+1}/3] | Diffusion Fine-Tuning Loss: {epoch_loss / len(dataloader):.4f}")
+    print(f"Epoch [{epoch+1}/{num_epochs}] | Diffusion Fine-Tuning Loss: {epoch_loss / len(dataloader):.4f}")
 
 # Clean up hook and save both checkpoints
 hook_handle.remove()
