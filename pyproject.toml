@@ -5,4 +5,21 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "omnispatial_perturb"
 version = "0.1.0"
-dependencies = []
+description = "A Multimodal Spatial Foundation Model & Generative Framework for Single-Cell Perturbation Modeling"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "torch>=2.0.0",
+    "torch-geometric>=2.4.0",
+    "scanpy>=1.9.0",
+    "anndata>=0.10.0",
+    "pertpy>=0.7.0",
+    "scipy>=1.10.0",
+    "numpy>=1.24.0",
+    "tbb>=2021.6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["data*", "models*", "scripts*"]
