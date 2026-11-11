@@ -1,14 +1,28 @@
-# **A Multimodal Spatial Foundation Model & Generative Framework for Single-Cell Perturbation Modeling**
 
----
+# A Multimodal Spatial Foundation Model & Generative Framework for Single-Cell Perturbation Modeling
 
 ## Overview
 
-**OmniSpatial-Perturb** is an end-to-end biological AI framework designed to unify transcriptomic representation learning, spatial morphology fusion, and conditional perturbation modeling. Built using PyTorch and PyTorch Geometric, it addresses key challenges in single-cell biology:
+OmniSpatial-Perturb is an open-source biological AI simulator that predicts how individual cells respond to drugs or genetic edits (such as CRISPR) before running expensive physical wet-lab experiments. By combining a cell's genetics, physical shape, and surrounding tissue neighborhood, it forecasts how a treatment will shift cellular states.
 
-- **High-Dimensional Sparseness:** Uses Masked Gene Modeling (MGM) to learn robust cell state representations across heterogeneous single-cell RNA-seq datasets.
-- **Spatial & Morphological Integration:** Combines cellular transcriptomics with spatial coordinates and cell image representations using Graph Convolutional Networks (GNNs) and Cross-Attention mechanisms.
-- **Generative Perturbation Prediction:** Models cellular state shifts resulting from CRISPR knockouts or drug treatments using modular fine-tuning and latent evaluation pipelines.
+Built with PyTorch and PyTorch Geometric, this end-to-end framework unifies transcriptomic representation learning, spatial morphology fusion, and conditional perturbation modeling to solve three core challenges in single-cell biology:
+
+1. **High-Dimensional Sparseness:** Uses Masked Gene Modeling (MGM) to learn clean, reliable cell state representations across noisy or incomplete single-cell RNA-seq datasets.
+2. **Spatial & Morphological Integration:** Combines cellular transcriptomics with spatial tissue coordinates and cell microscopy features using Graph Convolutional Networks (GNNs) and Cross-Attention mechanisms.
+3. **Generative Perturbation Prediction:** Models cellular state shifts resulting from CRISPR knockouts or chemical treatments using a modular Latent Diffusion pipeline.
+
+## Core Capabilities
+
+1. **Simulate Drug & Genetic Treatments (In Silico Screening):** Feed untreated "control" cells into the Latent Diffusion engine to generate predicted post-treatment gene expression profiles for specific drugs or gene knockouts.
+2. **Account for Tissue Neighborhoods:** Unlike standard models that analyse cells in isolation, OmniSpatial-Perturb builds spatial graphs to capture how neighboring cells influence treatment response—essential for studying tumors and complex organs.
+3. **Fuse Multimodal Biological Data:** Aligns three distinct data streams—gene expression (RNA-seq), spatial location (coordinates), and cell appearance (vision embeddings)—into a unified representation via multi-head cross-attention.
+4. **Plug-and-Play Bioinformatics Pipeline:** Natively ingests standard AnnData (.h5ad) files for streamlined fine-tuning, control-to-perturbed pairing, and automated evaluation using MSE, Pearson, and Spearman correlations.
+
+## Practical Use Cases
+
+1. **Drug Discovery:** Screen thousands of virtual chemical compounds on diseased tissue data to identify candidates that shift cells back toward a healthy state.
+2. **Target Identification:** Simulate knocking out individual genes within a tumor microenvironment to pinpoint targets that halt cancer cell proliferation.
+3. **Experimental Prioritisation:** Narrow down massive experimental search spaces to the top-performing candidates before committing time and budget at the wet-lab bench.
 
 ---
 
@@ -27,7 +41,7 @@ The pipeline operates in modular stages:
 
 1. **Foundation Backbone (`models/transformer.py`):** Encodes binned gene expression tokens and applies masked language modeling objectives to handle out-of-distribution biological variance.
 2. **Spatial Graph Integration (`models/spatial_gnn.py`):** Constructs local spatial neighborhood graphs ($k$-NN / Delaunay) and aligns gene expression embeddings with morphological features via multi-head cross-attention.
-3. **Perturbation Head & Loader (`data/loader.py`, `models/perturbation.py`):** Handles AnnData normalization, highly variable gene selection, control-to-perturbed pairing, and downstream fine-tuning/evaluation.
+3. **Perturbation Head & Loader (`data/loader.py`, `models/perturbation.py`):** Handles AnnData normalisation, highly variable gene selection, control-to-perturbed pairing, and downstream fine-tuning/evaluation.
 
 ---
 
@@ -73,8 +87,8 @@ omnispatial_perturb/
 Clone the repository and install dependencies:
 
 ```bash
-git clone [https://github.com/articlesmli/omniSpatial_perturb.git](https://github.com/articlesmli/omniSpatial_perturb.git)
-cd omniSpatial_perturb
+git clone https://github.com/articlesmli/omniSpatial_perturb.git
+cd repository_name
 pip install -r requirements.txt
 
 ```
