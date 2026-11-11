@@ -5,24 +5,43 @@ from torch.utils.data import DataLoader
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
 from models.transformer import SingleCellTransformer
+from models.spatial_gnn import SpatialCrossAttentionFusion
 from models.perturbation import PerturbationDiffusionHead
 from data.loader import PerturbationDataset
 
-# 1. Initialize Device and Load Joint Checkpoint
+
+def build_knn_edge_index(coords: torch.Tensor, k: int = 6) -> torch.Tensor:
+    """Builds a k-nearest-neighbor spatial graph from [Batch, 2] cell coordinates."""
+    num_nodes = coords.size(0)
+    if num_nodes <= 1:
+        return torch.zeros((2, 0), dtype=torch.long, device=coords.device)
+    k = min(k, num_nodes - 1)
+    dist = torch.cdist(coords, coords)
+    _, knn_idx = torch.topk(dist, k=k + 1, largest=False)
+    knn_idx = knn_idx[:, 1:]
+    src = torch.arange(num_nodes, device=coords.device).unsqueeze(1).expand_as(knn_idx).reshape(-1)
+    dst = knn_idx.reshape(-1)
+    return torch.stack([src, dst], dim=0)
+
+
+# 1. Initialize Device and Load Joint Multimodal Checkpoint
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 backbone = SingleCellTransformer(num_genes=2000, d_model=256).to(device)
+spatial_fusion = SpatialCrossAttentionFusion(d_model=256).to(device)
 diffusion_head = PerturbationDiffusionHead(latent_dim=256, num_perturbations=100).to(device)
 
-checkpoint = torch.load("omnispatial_diffusion_finetuned.pth", map_location=device)
+checkpoint = torch.load("omnispatial_multimodal_finetuned.pth", map_location=device)
 backbone.load_state_dict(checkpoint["backbone"])
+spatial_fusion.load_state_dict(checkpoint["spatial_fusion"])
 diffusion_head.load_state_dict(checkpoint["diffusion_head"])
 
 backbone.eval()
+spatial_fusion.eval()
 diffusion_head.eval()
 
 # 2. Setup Dataset and Validation Loader
-dataset = PerturbationDataset("pbmc3k.h5ad", max_genes=2000)
+dataset = PerturbationDataset("perturbation_data.h5ad", max_genes=2000)
 val_loader = DataLoader(dataset, batch_size=32, shuffle=False)
 
 # 3. Define Reverse Diffusion Schedule (Matches fine_tune.py)
@@ -40,9 +59,10 @@ def get_latent_hook(module, inp, out):
 last_linear = [m for m in backbone.modules() if isinstance(m, nn.Linear)][-1]
 hook_handle = last_linear.register_forward_hook(get_latent_hook)
 
+
 @torch.no_grad()
 def sample_perturbed_latent(z_ctrl: torch.Tensor, perturb_ids: torch.Tensor) -> torch.Tensor:
-    """Runs reverse DDPM sampling conditioned on z_ctrl and perturb_ids."""
+    """Runs reverse DDPM sampling conditioned on multimodal z_ctrl and perturb_ids."""
     batch_size = z_ctrl.size(0)
     z_t = torch.randn_like(z_ctrl)
 
@@ -65,34 +85,38 @@ def sample_perturbed_latent(z_ctrl: torch.Tensor, perturb_ids: torch.Tensor) -> 
 
     return z_t
 
+
 # 4. Evaluation Loop & Metric Accumulation
 criterion = nn.MSELoss()
 val_loss = 0.0
 preds_list = []
 targets_list = []
 
-print("Running reverse diffusion evaluation and computing correlations...")
+print("Running multimodal reverse diffusion evaluation and computing correlations...")
 with torch.no_grad():
-    for batch in val_loader:
-        if len(batch) == 4:
-            gene_ids, control_expr, target_expr, perturb_ids = batch
-        else:
-            gene_ids, control_expr, target_expr = batch
-            perturb_ids = torch.zeros(gene_ids.size(0), dtype=torch.long)
-
+    for gene_ids, control_expr, target_expr, perturb_ids, ctrl_coords, ctrl_morph in val_loader:
         gene_ids = gene_ids.to(device)
         control_expr = control_expr.to(device)
         target_expr = target_expr.to(device)
         perturb_ids = perturb_ids.to(device)
+        ctrl_coords = ctrl_coords.to(device)
+        ctrl_morph = ctrl_morph.to(device)
 
-        # Encode and standardize control and ground-truth target cells (mean=0, std=1)
+        # Extract transcriptomic embeddings
         _ = backbone(gene_ids, control_expr)
-        z_ctrl = F.layer_norm(latent_cache["hidden"], normalized_shape=(256,))
+        z_ctrl_raw = latent_cache["hidden"]
 
         _ = backbone(gene_ids, target_expr)
-        z_target = F.layer_norm(latent_cache["hidden"], normalized_shape=(256,))
+        z_target_raw = latent_cache["hidden"]
 
-        # Generate predicted perturbed latent state from z_ctrl
+        # Fuse spatial neighborhood & morphology, then standardize (mean=0, std=1)
+        edge_index = build_knn_edge_index(ctrl_coords, k=6)
+        z_ctrl_fused = spatial_fusion(z_ctrl_raw, edge_index, ctrl_morph)
+
+        z_ctrl = F.layer_norm(z_ctrl_fused, normalized_shape=(256,))
+        z_target = F.layer_norm(z_target_raw, normalized_shape=(256,))
+
+        # Generate predicted perturbed latent state from multimodal z_ctrl
         z_pred = sample_perturbed_latent(z_ctrl, perturb_ids)
 
         loss = criterion(z_pred, z_target)
