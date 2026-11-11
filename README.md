@@ -1,10 +1,4 @@
 # A Multimodal Spatial Foundation Model & Generative Framework for Single-Cell Perturbation Modeling
-
-![Python](https://shields.io)
-![PyTorch](https://shields.io)
-![PyG](https://shields.io)
-![License](https://shields.io)
-
 ---
 
 ## Overview
